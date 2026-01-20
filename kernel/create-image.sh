@@ -196,3 +196,4 @@ sudo mkdir -p /mnt/$DIR
 sudo mount -o loop $RELEASE.img /mnt/$DIR
 sudo cp -a $DIR/. /mnt/$DIR/.
 sudo umount /mnt/$DIR
+sudo chown -R $USER $DIR
