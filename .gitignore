@@ -1,0 +1,4 @@
+__pycache__
+*.pyc
+/kernel/linux-*.tar.xz
+/kernel/linux-*/
