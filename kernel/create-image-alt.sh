@@ -13,7 +13,7 @@ mkdir -p $WORK_DIR
 cd $WORK_DIR
 
 # Create directory structure
-mkdir -p {bin,sbin,etc,proc,sys,dev}
+mkdir -p {bin,sbin,etc,proc,sys,dev,usr,root}
 
 # Download static busybox
 echo "Downloading busybox..."
@@ -28,12 +28,40 @@ for cmd in $(./busybox --list); do
 done
 cd ..
 
+# install our prebuilt copy of dropbear
+mkdir -p usr/bin
+cp ../dropbearmulti usr/bin
+cd usr/bin
+ln -s dropbearmulti dropbear
+ln -s dropbearmulti dbclient
+ln -s dropbearmulti dropbearkey
+ln -s dropbearmulti dropbearconvert
+ln -s dropbearmulti scp
+cd ../..
+
+mkdir -p etc/dropbear
+ssh-keygen -f ../rootfs.id_rsa -t rsa -N ''
+mkdir -p root/.ssh
+cat ../rootfs.id_rsa.pub >> root/.ssh/authorized_keys
+chmod 0600 root/.ssh/authorized_keys
+chmod 0700 root/.ssh/
+chmod 0700 root/
+
 # Create inittab for busybox init
 cat > etc/inittab << 'EOF'
 ::sysinit:/etc/init.d/rcS
 ::ctrlaltdel:/sbin/reboot
 ttyS0::respawn:/bin/sh -l
 ::shutdown:/bin/umount -a -r
+EOF
+
+# create a user so we can use dropbear
+cat > etc/passwd << 'EOF'
+root:x:0:0:root:/root:/bin/sh
+EOF
+
+cat > etc/group << 'EOF'
+root:x:0:
 EOF
 
 # Create startup script with tmpfs and networking
@@ -44,6 +72,8 @@ cat > etc/init.d/rcS << 'EOF'
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t devtmpfs none /dev
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
 mount -o remount,rw /
 
 # Mount tmpfs
@@ -64,7 +94,7 @@ if ip link show eth0 2>/dev/null; then
     else
         # Static IP fallback
         ip addr add 10.0.2.15/24 dev eth0
-        ip route add default via 10.0.2.2
+        ip route add default via 10.0.2.10
     fi
 fi
 
@@ -73,6 +103,8 @@ hostname linux
 echo "Busybox initramfs booted successfully"
 echo "Network interfaces:"
 ip addr show
+
+dropbear -P /tmp/dropbear.pid -R
 EOF
 chmod +x etc/init.d/rcS
 
@@ -112,6 +144,8 @@ echo "Populating image..."
 mkdir -p mnt
 sudo mount -o loop $IMG_NAME mnt
 sudo cp -a $WORK_DIR/* mnt/
+sudo chown -R root mnt/
+sudo chgrp -R root mnt/
 sudo umount mnt
 rmdir mnt
 
