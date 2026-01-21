@@ -2,3 +2,4 @@ __pycache__
 *.pyc
 /kernel/linux-*
 /kernel/linux-*/
+dropbearmulti

@@ -208,11 +208,11 @@ class Kbuilder:
         except FileExistsError:
             self.logb("warn", f"Dir exists, skipping...")
         if not self.useAltRootfs:
-            cmdret = self.run(["cp", f"{self.BaseDir}kernel/create-image.sh", self.ImgPath])
+            cmdret = self.run(["cp", f"{self.BaseDir}scripts/create-image.sh", self.ImgPath])
             cmdret = self.run([f"{self.ImgPath}create-image.sh","-n", self.KHostname], rcwd=self.ImgPath)
         else:
-            cmdret = self.run(["cp", f"{self.BaseDir}kernel/create-image-alt.sh", self.ImgPath])
-            cmdret = self.run(["cp", f"{self.BaseDir}kernel/dropbear/dropbearmulti", self.ImgPath])
+            cmdret = self.run(["cp", f"{self.BaseDir}scripts/create-image-alt.sh", self.ImgPath])
+            cmdret = self.run(["cp", f"{self.BaseDir}kernel/dropbearmulti", self.ImgPath])
             # Script does not yet support custom hostnames
             cmdret = self.run([f"{self.ImgPath}create-image-alt.sh","-n", self.KHostname], rcwd=self.ImgPath)
         runkScript = open(self.runkPath, "w")
