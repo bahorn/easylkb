@@ -57,10 +57,7 @@ class Kbuilder:
         self.runkScript += f" -smp 2"
         self.runkScript += f" -kernel {self.KPath}/arch/x86/boot/bzImage"
         self.runkScript += f" -append \"console=ttyS0 root=/dev/sda earlyprintk=serial net.ifnames=0 nokaslr\""
-        if self.useAltRootfs:
-            self.runkScript += f" -drive file={self.ImgPath}alt.img,format=raw"
-        else:
-            self.runkScript += f" -drive file={self.ImgPath}bullseye.img,format=raw"
+        self.runkScript += f" -drive file={self.ImgPath}rootfs.img,format=raw"
         self.runkScript += f" -net user,host=10.0.2.10,hostfwd=tcp:127.0.0.1:10021-:22"
         self.runkScript += f" -net nic,model=e1000"
         self.runkScript += f" -nographic"

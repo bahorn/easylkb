@@ -152,4 +152,4 @@ rmdir mnt
 # Cleanup
 rm -rf $WORK_DIR
 
-mv $IMG_NAME alt.img
+mv $IMG_NAME rootfs.img
