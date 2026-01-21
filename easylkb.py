@@ -19,9 +19,18 @@ def url_for_kernel(full_ver):
 
     return None
 
+def wrap_container(container, rcwd, cmd):
+    cwd = os.path.abspath(rcwd)
+    return ['docker', 'run', '--rm',
+            '-v', f'{cwd}:/build',
+            '-u', f'{os.getuid()}:{os.getgid()}',
+            '-ti',
+            container
+        ] + cmd
+
 
 class Kbuilder:
-    def __init__(self, KConfig=None, KPath=None, KVersion="", KHostname="localhost"):
+    def __init__(self, KConfig=None, KPath=None, KVersion="", KHostname="localhost", KContainer=None):
         self.BaseDir = os.getcwd() + "/"
         self.LogDir = self.BaseDir + "log/"
         self.KVersion = KVersion # The kernel version
@@ -33,6 +42,7 @@ class Kbuilder:
             self.KPath = KPath
         else:
             self.KPath = f"{self.BaseDir}kernel/linux-{KVersion}/" # Path to this kernel
+        self.KContainer = KContainer
         self.ImgPath = self.KPath + "img/"
         self.KHostname = KHostname
         self.isDownloaded = False # Is the tarball downloaded?
@@ -90,7 +100,7 @@ class Kbuilder:
         if quiet == False:
             print(outmsg)
         return outmsg
-    def run(self, cmd, rcwd=None):
+    def run(self, cmd, rcwd=None, container=None):
         # This is a wrapper around subprocess.Popen that follows the output
         # cmd  = A list containing the command to run
         # rcwd = current working dir for this command
@@ -98,26 +108,33 @@ class Kbuilder:
         retcode = -1
         if rcwd == None:
             rcwd = self.BaseDir
-        if cmd is not None:
-            try:
-                self.logb("log", f"Executing {cmd}")
-                subproc = subprocess.Popen(cmd,
-                                cwd=rcwd,
-                                stderr=subprocess.PIPE)
-                err = ''
-                while subproc.poll() is None:
-                    if subproc.stderr is not None:
-                        line = subproc.stderr.readline().decode('utf-8')
-                        err += line
-                        sys.stderr.write(line)
-                        sys.stderr.flush()
 
-                exitcode = subproc.poll()
-                return exitcode
-            except Exception as e:
-                print("[!] Error!")
-                print(e)
-                return retcode
+        if cmd is None:
+            return retcode
+
+        real_cmd = cmd
+        if container:
+            real_cmd = wrap_container(container, rcwd, cmd)
+
+        try:
+            self.logb("log", f"Executing {real_cmd}")
+            subproc = subprocess.Popen(real_cmd,
+                            cwd=rcwd,
+                            stderr=subprocess.PIPE)
+            err = ''
+            while subproc.poll() is None:
+                if subproc.stderr is not None:
+                    line = subproc.stderr.readline().decode('utf-8')
+                    err += line
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+
+            exitcode = subproc.poll()
+            return exitcode
+        except Exception as e:
+            print("[!] Error!")
+            print(e)
+
     def KDownload(self):
         if not self.KVersion:
             self.logb("warn", f"You must set self.KVersion before using KDownload().")
@@ -157,9 +174,10 @@ class Kbuilder:
             if not os.path.isdir(extracted_path): # Check if extracted files are where we expect
                 self.logb("warn", f"Warning - tarball downloaded to {archive_path}, but archive extraction was unsuccessful")
     def KConfigure(self):
-        cmdret = self.run(["make", "defconfig"], rcwd=self.KPath)
-        cmdret = self.run(["make", "kvm_guest.config"], rcwd=self.KPath)
-
+        cmdret = self.run(["make", "defconfig"], rcwd=self.KPath,
+                          container=self.KContainer)
+        cmdret = self.run(["make", "kvm_guest.config"], rcwd=self.KPath,
+                          container=self.KContainer)
         self.logb("log",f"Appending {self.KConfig} to {self.KPath}.config")
         KConfigFile = open(self.KConfig, "r")
         ConfigFile = open(f"{self.KPath}.config", "a+") # This is the config file to write
@@ -167,10 +185,12 @@ class Kbuilder:
         ConfigFile.close()
         KConfigFile.close()
 
-        cmdret = self.run(["make", "olddefconfig"], rcwd=self.KPath)
+        cmdret = self.run(["make", "olddefconfig"], rcwd=self.KPath,
+                          container=self.KContainer)
     def KCompile(self):
         self.logb("warn","Warning: Building the kernel, this may take a while...")
-        cmdret = self.run(["make", "-j", f"{self.nproc}"], rcwd=self.KPath)
+        cmdret = self.run(["make", "-j", f"{self.nproc}"], rcwd=self.KPath,
+                          container=self.KContainer)
     def DebImageBuild(self):
         self.logb("log", f"Building Debian Image - Version: {self.KVersion} Hostname: {self.KHostname}")
         try:
@@ -204,6 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', dest='DebImageBuild', action="store_true", help='Builds bootable Debian image from a built kernel')
     parser.add_argument('-r', dest='DebImageRun', action="store_true", help='Run image with QEMU')
     parser.add_argument('-a', dest='DoAll', action="store_true", help='Do All: Download (or use source specified by -p), Configure, Compile, Build Image, and Run Image')
+    parser.add_argument('--container', dest='KContainer', default=None, help='Use a docker container for running build and configuration.')
     args = parser.parse_args()
 
     if args.KVersion is None and args.KPath is None:
@@ -213,7 +234,8 @@ if __name__ == '__main__':
     myKVersion = args.KVersion
     myKPath = args.KPath
     myKConfig = args.KConfig
-    Kb = Kbuilder(KVersion=myKVersion, KPath=myKPath, KConfig=myKConfig)
+    Kb = Kbuilder(KVersion=myKVersion, KPath=myKPath, KConfig=myKConfig,
+                  KContainer=args.KContainer)
 
     if args.DoAll:
         if myKPath is not None:

@@ -67,6 +67,12 @@ easylkb -k 6.2 -a
 
 When it's running, it will run qemu with the Debian image and expose ssh and GDB debugging features accessible via localhost.
 
+If you are unable to build a kernel due to toolchain issues, there are Docker
+containers that you can use setup with `./scripts/setup.sh`, and use like:
+```
+easylkb -k 4.19 -dcm --container easylkb-1804buildenv
+```
+
 ## How Do I Interact With The Image?
 
 The image, keys, and run script are stored in the img/ directory within the kernel source.
