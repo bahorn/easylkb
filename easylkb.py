@@ -16,6 +16,19 @@ def wrap_container(container, rcwd, cmd):
         ] + cmd
 
 
+def url_for_kernel(full_ver):
+    version = list(map(int, full_ver.split('.')))
+    major = version[0]
+    minor = version[1]
+
+    if major in [1, 2]:
+        return f"https://cdn.kernel.org/pub/linux/kernel/v{major}.{minor}/linux-{full_ver}.tar.xz"
+    elif major in [3, 4, 5, 6]:
+        return f"https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{full_ver}.tar.xz"
+
+    return None
+
+
 class Kbuilder:
     def __init__(self, KConfig=None, KPath=None, KVersion="",
                  KHostname="localhost", container=None):
@@ -124,46 +137,47 @@ class Kbuilder:
             print(e)
 
     def KDownload(self):
-        if self.KVersion: # This means we're downloading a mainline kernel
-            version_checker = r"^([3-6])\.\d+(?:\.\d+)?$" # support major versions 3,4,5,6
-            version = re.match(version_checker, self.KVersion)
-            if not version:
-                self.logb("fail","Invalid or unsupported kernel version!")
-                return
-            major_ver = version.group(1)
-            full_ver = version.group(0)
-            tarball_url = f"https://cdn.kernel.org/pub/linux/kernel/v{major_ver}.x/linux-{full_ver}.tar.xz"
-            file_name = f"linux-{full_ver}"
-            cwd = os.getcwd()
-            download_path = f"{cwd}/kernel/" # TODO: Grab this from the class instead!!
-            archive_name = f"{file_name}.tar.xz"
-            extracted_path = download_path + file_name # This is where the kernel source is extracted, kernel/linux-version/
-            archive_path = download_path + archive_name
-
-            if os.path.isfile(archive_path):
-                confirm_overwrite = self.logb("warn", f"Warning - already downloaded archive for version {full_ver}. Overwrite? [y/n] (Default=n)", quiet=True)
-                archiveOverwrite = input(f"{confirm_overwrite} ")
-                self.isDownloaded = False if archiveOverwrite.lower() == "y" else True # Trigger redownload
-            # try to download tarball for target kernel version
-            if self.isDownloaded == False:
-                self.logb("good",f"Downloading {tarball_url} to {archive_path}")
-                dlcmd = self.run(["curl", "-s", "--fail", tarball_url, "-o", archive_path])
-                if dlcmd != 0:
-                    self.logb("warn", f"Warning - attempt to download archive for kernel version {full_ver} was unsuccessful. plz check your version")
-                    self.isDownloaded = False
-                    return
-                else:
-                    self.isDownloaded = True
-            if os.path.isdir(extracted_path):
-                self.logb("warn", f"Warning - extracted directory already exists for version {full_ver}.")
-                self.isExtracted = True
-            if self.isExtracted == False:
-                self.logb("good", f"Extracting the tarball for {self.KVersion}")
-                self.run(["tar", "xf", archive_path, "-C", download_path])
-                if not os.path.isdir(extracted_path): # Check if extracted files are where we expect
-                    self.logb("warn", f"Warning - tarball downloaded to {archive_path}, but archive extraction was unsuccessful")
-        else:
+        if not self.KVersion: # This means we're downloading a mainline kernel
             self.logb("warn", f"You must set self.KVersion before using KDownload().")
+            return
+
+        full_ver = self.KVersion
+
+        tarball_url = url_for_kernel(full_ver)
+
+        if tarball_url is None:
+            self.logb("fail","Invalid or unsupported kernel version!")
+            return
+
+        file_name = f"linux-{full_ver}"
+        cwd = os.getcwd()
+        download_path = f"{cwd}/kernel/" # TODO: Grab this from the class instead!!
+        archive_name = f"{file_name}.tar.xz"
+        extracted_path = download_path + file_name # This is where the kernel source is extracted, kernel/linux-version/
+        archive_path = download_path + archive_name
+
+        if os.path.isfile(archive_path):
+            confirm_overwrite = self.logb("warn", f"Warning - already downloaded archive for version {full_ver}. Overwrite? [y/n] (Default=n)", quiet=True)
+            archiveOverwrite = input(f"{confirm_overwrite} ")
+            self.isDownloaded = False if archiveOverwrite.lower() == "y" else True # Trigger redownload
+        # try to download tarball for target kernel version
+        if self.isDownloaded == False:
+            self.logb("good",f"Downloading {tarball_url} to {archive_path}")
+            dlcmd = self.run(["curl", "-s", "--fail", tarball_url, "-o", archive_path])
+            if dlcmd != 0:
+                self.logb("warn", f"Warning - attempt to download archive for kernel version {full_ver} was unsuccessful. plz check your version")
+                self.isDownloaded = False
+                return
+            else:
+                self.isDownloaded = True
+        if os.path.isdir(extracted_path):
+            self.logb("warn", f"Warning - extracted directory already exists for version {full_ver}.")
+            self.isExtracted = True
+        if self.isExtracted == False:
+            self.logb("good", f"Extracting the tarball for {self.KVersion}")
+            self.run(["tar", "xf", archive_path, "-C", download_path])
+            if not os.path.isdir(extracted_path): # Check if extracted files are where we expect
+                self.logb("warn", f"Warning - tarball downloaded to {archive_path}, but archive extraction was unsuccessful")
     def KConfigure(self):
         cmdret = self.run(["make", "defconfig"], rcwd=self.KPath,
                           container=self._container)
