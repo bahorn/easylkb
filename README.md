@@ -79,7 +79,12 @@ The image, keys, and run script are stored in the img/ directory within the kern
 
 You can ssh into your image like so:
 ```
-ssh root@localhost -p 10021 -i ~/kernel/linux-6.2/img/bullseye.id_rsa
+ssh root@localhost -p 10021 -i ~/kernel/linux-6.2/img/rootfs.id_rsa
+```
+
+Or with the `ssh-kernel.sh` script:
+```
+./scripts/ssh-kernel.sh 6.2
 ```
 
 The default login for the resulting image is the user "root" with no password.
@@ -90,7 +95,7 @@ Host linux62
   HostName localhost
   User root
   Port 10021
-  IdentityFile ~/kernel/linux-6.2/img/bullseye.id_rsa
+  IdentityFile ~/kernel/linux-6.2/img/rootfs.id_rsa
   StrictHostKeyChecking no
 ```
 
