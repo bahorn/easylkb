@@ -30,7 +30,7 @@ def wrap_container(container, rcwd, cmd):
 
 
 class Kbuilder:
-    def __init__(self, KConfig=None, KPath=None, KVersion="", KHostname="localhost", KContainer=None):
+    def __init__(self, KConfig=None, KPath=None, KVersion="", KHostname="localhost", KContainer=None, KAltRootfs=False):
         self.BaseDir = os.getcwd() + "/"
         self.LogDir = self.BaseDir + "log/"
         self.KVersion = KVersion # The kernel version
@@ -43,6 +43,7 @@ class Kbuilder:
         else:
             self.KPath = f"{self.BaseDir}kernel/linux-{KVersion}/" # Path to this kernel
         self.KContainer = KContainer
+        self.useAltRootfs = KAltRootfs
         self.ImgPath = self.KPath + "img/"
         self.KHostname = KHostname
         self.isDownloaded = False # Is the tarball downloaded?
@@ -198,8 +199,14 @@ class Kbuilder:
             os.mkdir(self.ImgPath) # this should create the dir, needs testing
         except FileExistsError:
             self.logb("warn", f"Dir exists, skipping...")
-        cmdret = self.run(["cp", f"{self.BaseDir}scripts/create-image.sh", self.ImgPath])
-        cmdret = self.run([f"{self.ImgPath}create-image.sh","-n", self.KHostname], rcwd=self.ImgPath)
+        if not self.useAltRootfs:
+            cmdret = self.run(["cp", f"{self.BaseDir}scripts/create-image.sh", self.ImgPath])
+            cmdret = self.run([f"{self.ImgPath}create-image.sh","-n", self.KHostname], rcwd=self.ImgPath)
+        else:
+            cmdret = self.run(["cp", f"{self.BaseDir}scripts/create-image-alt.sh", self.ImgPath])
+            cmdret = self.run(["cp", f"{self.BaseDir}kernel/dropbearmulti", self.ImgPath])
+            # Script does not yet support custom hostnames
+            cmdret = self.run([f"{self.ImgPath}create-image-alt.sh","-n", self.KHostname], rcwd=self.ImgPath)
         runkScript = open(self.runkPath, "w")
         runkScript.write(self.runkScript)
         runkScript.close()
@@ -225,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', dest='DebImageRun', action="store_true", help='Run image with QEMU')
     parser.add_argument('-a', dest='DoAll', action="store_true", help='Do All: Download (or use source specified by -p), Configure, Compile, Build Image, and Run Image')
     parser.add_argument('--container', dest='KContainer', default=None, help='Use a docker container for running build and configuration.')
+    parser.add_argument('--alt', dest='KAltRootfs', action="store_true", help='Use a busybox rootfs')
     args = parser.parse_args()
 
     if args.KVersion is None and args.KPath is None:
@@ -235,7 +243,7 @@ if __name__ == '__main__':
     myKPath = args.KPath
     myKConfig = args.KConfig
     Kb = Kbuilder(KVersion=myKVersion, KPath=myKPath, KConfig=myKConfig,
-                  KContainer=args.KContainer)
+                  KContainer=args.KContainer, KAltRootfs=args.KAltRootfs)
 
     if args.DoAll:
         if myKPath is not None:

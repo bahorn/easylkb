@@ -55,6 +55,10 @@ To build a Debian (i)mage from this kernel
 easylkb -k 6.2 -i
 ```
 
+(If you are trying to use a kernel earlier than around 3.6, please use the
+`--alt` flag as the debbootstrap rootfs doesn't support kernels as old as this,
+and make sure you have previously ran `./scripts/setup.sh`)
+
 To (r)un the generated image:
 ```
 easylkb -k 6.2 -r
