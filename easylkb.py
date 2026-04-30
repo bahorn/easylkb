@@ -23,7 +23,7 @@ def url_for_kernel(full_ver):
 
     if major in [1, 2]:
         return f"https://cdn.kernel.org/pub/linux/kernel/v{major}.{minor}/linux-{full_ver}.tar.xz"
-    elif major in [3, 4, 5, 6]:
+    elif major in [3, 4, 5, 6, 7]:
         return f"https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{full_ver}.tar.xz"
 
     return None
